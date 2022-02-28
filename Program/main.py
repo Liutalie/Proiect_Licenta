@@ -5,6 +5,7 @@ import warnings
 from matplotlib import pyplot as plt
 import pandas as pd
 from numpy import double
+from skimage import segmentation
 from sklearn.cluster import estimate_bandwidth, MeanShift
 from sklearn.preprocessing import MinMaxScaler
 
@@ -108,17 +109,30 @@ cv.imwrite(r'D:\Facultate\An 4\Licenta\Tema licenta\COVID-CT-master\Images-proce
 
 # SUPERPIXEL SLIC
 
-slic = cv2.ximgproc.createSuperpixelSLIC(result, region_size=20, ruler=100.0)
+slic = cv2.ximgproc.createSuperpixelSLIC(result,algorithm=100, region_size=25, ruler=100.0)
 slic.iterate(24)
-mask_slic = slic.getLabelContourMask()
-label_slic = slic.getLabels()
-number_slic = slic.getNumberOfSuperpixels()
-mask_inv_slic = cv.bitwise_not(mask_slic)
-imagine = cv.bitwise_and(result, result, mask=mask_inv_slic)
+mask_slic = slic.getLabelContourMask() # Contine: val min/max a unui pixel (0,255), shape (200X300), size (60000), array (conturul separator)
+label_slic = slic.getLabels() # Contine: min/max al zonei (0->144 zone), shape (200X300), size (60000), array (fiecare pixel a carei zone apartine)
+number_slic = slic.getNumberOfSuperpixels() # Retine numarul de SuperPixeli
+mask_inv_slic = cv.bitwise_not(mask_slic) # Inversam bitii
+imagine = cv.bitwise_and(result, result, mask=mask_inv_slic) # SI logic, punem in img conturul SuperPixelilor
 
-color_img = np.zeros((result.shape[0], result.shape[1], 1), np.uint8)
+color_img = np.zeros((result.shape[0], result.shape[1], 1), np.uint8) # Contine: shpe (200,300,1 (cate culori)), size (60000), array (fiecare pixel)
 color_img[:] = (0)
 result_ = cv2.bitwise_and(color_img, color_img, mask=mask_slic)
 result_img = cv2.add(imagine, result_)
 
-cv.imwrite(r'D:\Facultate\An 4\Licenta\Tema licenta\COVID-CT-master\Images-processed\COVID\SALUT2.png', result_img)
+
+# Mean of each SuperPixel (Trebuie sa ma mai uit putin)
+im_rp = result_img.reshape((result_img.shape[0]*result_img.shape[1]))
+sli_1d = np.reshape(label_slic, -1)
+uni = np.unique(sli_1d)
+uu = np.zeros(im_rp.shape)
+for i in uni:
+    loc = np.where(sli_1d == i)[0]
+    mm = np.mean(im_rp[loc], axis=0)
+    uu[loc] = mm
+temporary_img = np.reshape(uu,[result_img.shape[0], result_img.shape[1]]).astype('uint8')
+temporary_img = cv2.bitwise_and(temporary_img, mask_inv_slic)
+
+cv.imwrite(r'D:\Facultate\An 4\Licenta\Tema licenta\COVID-CT-master\Images-processed\COVID\SALUT2.png', temporary_img)
